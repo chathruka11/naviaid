@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NaviAid</title>
+</head>
+<body style="background:#000; color:#FFD700; text-align:center; font-family:sans-serif;">
+    <h2>NaviAid Smart Guide</h2>
+    <video id="v" autoplay playsinline style="width:100%; background:#222;"></video>
+    <div id="g">GPS...</div>
+    <button onclick="s('ඉදිරියේ බාධක නැත')" style="padding:20px; width:80%; margin:10px; background:#FFD700;">පරීක්ෂා කරන්න</button>
+    
+    <script>
+        let a, b;
+        navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(x=>{document.getElementById('v').srcObject=x;});
+        navigator.geolocation.watchPosition(p=>{a=p.coords.latitude; b=p.coords.longitude; document.getElementById('g').innerText="GPS OK";});
+        function s(t){let m=new SpeechSynthesisUtterance(t); m.lang='si-LK'; window.speechSynthesis.speak(m);}
+    </script>
+</body>
+</html>
