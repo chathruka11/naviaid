@@ -1,87 +1,87 @@
-
 <!DOCTYPE html>
 <html lang="si">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NaviAid AI Brain v6</title>
+    <title>NaviAid Real-Eye AI</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    
     <style>
         body { margin: 0; background: #000; color: #00FF00; font-family: sans-serif; text-align: center; }
-        .header { background: #111; padding: 15px; font-size: 20px; border-bottom: 2px solid #00FF00; }
-        #video-container { position: relative; width: 100%; height: 50vh; background: #222; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .status { padding: 20px; font-size: 18px; color: #FFD700; background: #111; min-height: 50px; }
-        .btn { width: 90%; padding: 20px; margin: 10px; background: #00FF00; color: #000; border: none; border-radius: 50px; font-weight: bold; font-size: 18px; }
+        video { width: 100%; height: 70vh; object-fit: cover; }
+        .vision-status { padding: 20px; font-size: 22px; color: #FFD700; background: #111; min-height: 100px; line-height: 1.5; }
+        .live-indicator { position: absolute; top: 10px; right: 10px; color: red; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } }
     </style>
 </head>
-<body onclick="startAI()">
+<body onclick="startHumanEye()">
 
-    <div class="header">NAVIAID: AI පරිලෝකනය (Live)</div>
-    <div id="video-container">
-        <video id="webcam" autoplay playsinline muted></video>
-        <canvas id="overlay"></canvas>
-    </div>
-    <div class="status" id="status-msg">AI මොළය පූරණය වෙමින්... ස්ක්‍රීන් එක ටැප් කරන්න.</div>
-    <button class="btn">AI සහාය සක්‍රීයයි</button>
+    <div class="live-indicator">● LIVE AI EYE</div>
+    <video id="video" autoplay playsinline muted></video>
+    <div class="vision-status" id="narrator">මනුස්ස ඇස පණගැන්වීමට ස්ක්‍රීන් එක ටැප් කරන්න. ඉන්පසු ෆෝන් එක ඉදිරියට හරවා තබාගන්න.</div>
 
     <script>
         let model;
-        let video = document.getElementById('webcam');
-        let statusMsg = document.getElementById('status-msg');
-        let isSpeaking = false;
+        let lastAnnounced = "";
+
+        // මනුස්ස ඇසක් වගේ හඳුනාගන්නා දේවල් (විශාල ලැයිස්තුවක්)
+        const dictionary = {
+            "person": "මිනිසෙක් ඉදිරියෙන් සිටී",
+            "bicycle": "බයිසිකලයක්",
+            "car": "වාහනයක් එනවා",
+            "motorcycle": "මෝටර් සයිකලයක්",
+            "bus": "බස් රථයක්",
+            "truck": "ට්‍රක් රථයක්",
+            "dog": "බල්ලෙක් ඉන්නවා",
+            "tree": "ගස් කොළන් පෙනෙනවා",
+            "bench": "වාඩි වෙන්න බංකුවක් තියෙනවා",
+            "cell phone": "ජංගම දුරකථනයක්",
+            "potted plant": "මල් පෝච්චියක් හෝ ගසක්",
+            "chair": "පුටුවක්",
+            "bed": "ඇඳක්",
+            "tv": "ටීවී එකක්",
+            "laptop": "ලැප්ටොප් එකක්"
+            // මෙතනට AI එකෙන් එන ඕනෑම දෙයක් සිංහලට හැරවීමේ logic එකක් අපි දාමු
+        };
+
+        async function startHumanEye() {
+            document.getElementById('narrator').innerText = "AI ඇස පූරණය වේ... රැඳී සිටින්න...";
+            model = await cocoSsd.load();
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: 'environment', focusMode: 'continuous' } 
+            });
+            document.getElementById('video').srcObject = stream;
+            speak("මනුස්ස ඇස සක්‍රීයයි. මම දැන් ඔබ වෙනුවෙන් වටපිටාව නිරීක්ෂණය කරනවා.");
+            autoScan();
+        }
 
         function speak(text) {
-            if (isSpeaking) return;
-            isSpeaking = true;
-            window.speechSynthesis.cancel();
+            if (window.speechSynthesis.speaking) return;
             let msg = new SpeechSynthesisUtterance(text);
             msg.lang = 'si-LK';
-            msg.onend = () => { isSpeaking = false; };
+            msg.rate = 0.9; // ටිකක් හෙමින් පැහැදිලිව කියන්න
             window.speechSynthesis.speak(msg);
-            statusMsg.innerText = text;
+            document.getElementById('narrator').innerText = text;
         }
 
-        async function startAI() {
-            statusMsg.innerText = "කැමරාව සහ AI පණගැන්වේ...";
-            
-            // කැමරාව ලබා ගැනීම
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-            video.srcObject = stream;
-
-            // AI Model එක ලෝඩ් කිරීම
-            statusMsg.innerText = "AI මොළය සූදානම් කරමින්... කරුණාකර රැඳී සිටින්න.";
-            model = await cocoSsd.load();
-            statusMsg.innerText = "AI සක්‍රීයයි! මම දැන් වටපිටාව නිරීක්ෂණය කරනවා.";
-            speak("පද්ධතිය සූදානම්. මම දැන් වටපිටාව නිරීක්ෂණය කරනවා.");
-            
-            predict();
-        }
-
-        async function predict() {
-            const predictions = await model.detect(video);
+        async function autoScan() {
+            const predictions = await model.detect(document.getElementById('video'));
             
             if (predictions.length > 0) {
-                let objectName = predictions[0].class;
+                let primaryObject = predictions[0].class;
+                let description = dictionary[primaryObject] || primaryObject + " හඳුනාගත්තා";
                 
-                // ඉංග්‍රීසි නම් සිංහලට හැරවීම (පොඩි උදාහරණ කිහිපයක්)
-                let translation = {
-                    "person": "පුද්ගලයෙක් ඉදිරියෙන් සිටී",
-                    "cell phone": "ජංගම දුරකථනයක් හඳුනාගත්තා",
-                    "bottle": "බෝතලයක් තිබේ",
-                    "chair": "පුටුවක් තිබේ",
-                    "bed": "ඇඳක් හඳුනාගත්තා",
-                    "laptop": "ලැප්ටොප් එකක් තිබේ"
-                };
-
-                let message = translation[objectName] || objectName + " හඳුනාගත්තා";
-                speak(message);
+                // එකම දේ නැවත නැවත කීම වැළැක්වීමට
+                if (description !== lastAnnounced) {
+                    speak(description);
+                    lastAnnounced = description;
+                }
+            } else {
+                // කිසිවක් නැති විට වටපිටාව ගැන පොදු විස්තරයක් (අනුමාන)
+                // මේක තව දියුණු කළ යුතුයි
             }
-
-            requestAnimationFrame(predict); // දිගටම ස්කෑන් කරන්න
+            
+            setTimeout(autoScan, 2000); // සෑම තත්පර 2කට වරක් ස්වයංක්‍රීයව බලයි
         }
     </script>
 </body>
