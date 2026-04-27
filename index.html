@@ -1,87 +1,88 @@
+
 <!DOCTYPE html>
 <html lang="si">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NaviAid Original AI</title>
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>NaviAid AI Brain v6</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     
     <style>
-        body { margin: 0; background: #000; color: #00FF00; font-family: 'Segoe UI', sans-serif; text-align: center; }
-        .header { background: #111; padding: 20px; font-size: 24px; border-bottom: 3px solid #00FF00; font-weight: bold; }
-        video { width: 100%; height: 50vh; object-fit: cover; border-bottom: 2px solid #333; }
-        .status-display { padding: 25px; font-size: 20px; color: #FFD700; background: #0a0a0a; min-height: 80px; }
-        .ai-scanner { position: absolute; top: 15%; left: 0; width: 100%; height: 2px; background: rgba(0, 255, 0, 0.5); box-shadow: 0 0 15px #00FF00; animation: scan 3s infinite linear; }
-        @keyframes scan { 0% { top: 15%; } 50% { top: 65%; } 100% { top: 15%; } }
-        .action-area { padding: 20px; }
-        .btn-start { width: 90%; padding: 25px; background: #00FF00; color: #000; border: none; border-radius: 50px; font-size: 22px; font-weight: bold; box-shadow: 0 5px 15px rgba(0, 255, 0, 0.3); }
+        body { margin: 0; background: #000; color: #00FF00; font-family: sans-serif; text-align: center; }
+        .header { background: #111; padding: 15px; font-size: 20px; border-bottom: 2px solid #00FF00; }
+        #video-container { position: relative; width: 100%; height: 50vh; background: #222; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .status { padding: 20px; font-size: 18px; color: #FFD700; background: #111; min-height: 50px; }
+        .btn { width: 90%; padding: 20px; margin: 10px; background: #00FF00; color: #000; border: none; border-radius: 50px; font-weight: bold; font-size: 18px; }
     </style>
 </head>
-<body onclick="activateAI()">
+<body onclick="startAI()">
 
-    <div class="header">NAVIAID: ORIGINAL AI</div>
-    <div class="ai-scanner"></div>
-    <video id="cameraView" autoplay playsinline></video>
-    <div class="status-display" id="output">පද්ධතිය සූදානම්. ආරම්භ කිරීමට ස්පර්ශ කරන්න.</div>
-    
-    <div class="action-area">
-        <button class="btn-start" id="mainBtn">ඩිජිටල් ඇස පණගන්වන්න</button>
+    <div class="header">NAVIAID: AI පරිලෝකනය (Live)</div>
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
     </div>
+    <div class="status" id="status-msg">AI මොළය පූරණය වෙමින්... ස්ක්‍රීන් එක ටැප් කරන්න.</div>
+    <button class="btn">AI සහාය සක්‍රීයයි</button>
 
     <script>
-        let synth = window.speechSynthesis;
-        let isRunning = false;
+        let model;
+        let video = document.getElementById('webcam');
+        let statusMsg = document.getElementById('status-msg');
+        let isSpeaking = false;
 
         function speak(text) {
-            synth.cancel();
-            let utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'si-LK';
-            utterance.rate = 1.0;
-            synth.speak(utterance);
-            document.getElementById('output').innerText = text;
+            if (isSpeaking) return;
+            isSpeaking = true;
+            window.speechSynthesis.cancel();
+            let msg = new SpeechSynthesisUtterance(text);
+            msg.lang = 'si-LK';
+            msg.onend = () => { isSpeaking = false; };
+            window.speechSynthesis.speak(msg);
+            statusMsg.innerText = text;
         }
 
-        async function activateAI() {
-            if (isRunning) return;
-            isRunning = true;
+        async function startAI() {
+            statusMsg.innerText = "කැමරාව සහ AI පණගැන්වේ...";
             
-            speak("NaviAid උසස් තාක්ෂණික පද්ධතිය පණගැන්වුණා. මම ඔබේ සහායට සූදානම්.");
+            // කැමරාව ලබා ගැනීම
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
 
-            // කැමරාව පණගැන්වීම
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                document.getElementById('cameraView').srcObject = stream;
-            } catch (err) {
-                speak("කැමරාව ක්‍රියාත්මක කිරීමට අවසර ලබා දෙන්න.");
-            }
-
-            // GPS ආරම්භය
-            startNavigation();
+            // AI Model එක ලෝඩ් කිරීම
+            statusMsg.innerText = "AI මොළය සූදානම් කරමින්... කරුණාකර රැඳී සිටින්න.";
+            model = await cocoSsd.load();
+            statusMsg.innerText = "AI සක්‍රීයයි! මම දැන් වටපිටාව නිරීක්ෂණය කරනවා.";
+            speak("පද්ධතිය සූදානම්. මම දැන් වටපිටාව නිරීක්ෂණය කරනවා.");
+            
+            predict();
         }
 
-        function startNavigation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(position => {
-                    // මෙතනදී ඇත්තම මගපෙන්වීම සිදුකළ හැක
-                    checkRouteProgress(position.coords);
-                }, null, { enableHighAccuracy: true });
+        async function predict() {
+            const predictions = await model.detect(video);
+            
+            if (predictions.length > 0) {
+                let objectName = predictions[0].class;
+                
+                // ඉංග්‍රීසි නම් සිංහලට හැරවීම (පොඩි උදාහරණ කිහිපයක්)
+                let translation = {
+                    "person": "පුද්ගලයෙක් ඉදිරියෙන් සිටී",
+                    "cell phone": "ජංගම දුරකථනයක් හඳුනාගත්තා",
+                    "bottle": "බෝතලයක් තිබේ",
+                    "chair": "පුටුවක් තිබේ",
+                    "bed": "ඇඳක් හඳුනාගත්තා",
+                    "laptop": "ලැප්ටොප් එකක් තිබේ"
+                };
+
+                let message = translation[objectName] || objectName + " හඳුනාගත්තා";
+                speak(message);
             }
+
+            requestAnimationFrame(predict); // දිගටම ස්කෑන් කරන්න
         }
-
-        function checkRouteProgress(coords) {
-            // උදාහරණයක් ලෙස පාරේ මීටර් ගණන හඳුනාගැනීම
-            console.log("GPS Active: " + coords.latitude);
-        }
-
-        // වොයිස් ගයිඩ් එක දිගටම පවත්වා ගැනීම
-        setInterval(() => {
-            if (isRunning) {
-                // මෙතනදී AI මගින් වටපිටාව ස්කෑන් කර විස්තර පවසනු ඇත
-                // දැනට පද්ධතියේ සක්‍රීය බව පවසයි
-            }
-        }, 15000);
-
     </script>
 </body>
 </html>
